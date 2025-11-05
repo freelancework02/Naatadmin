@@ -4,10 +4,15 @@ import Topbar from "../components/Topbar.jsx";
 
 // simple view registry
 import Dashboard from "../views/Dashboard.jsx";
+import ViewPoetry from "../views/ViewPoetry.jsx"
+import AddPoetry from "../views/AddPoetry.jsx";
+import Addarticle from "../views/Addarticle.jsx"
 
 
 const VIEWS = {
   dashboard: <Dashboard />,
+  kalaam: <ViewPoetry />,
+  articles: <ViewPoetry />,
  
 };
 

@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naat Academy - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root { --sidebar-width: 16rem; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .sidebar {
+            width: var(--sidebar-width);
+            transition: transform 0.3s ease-in-out;
+        }
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed; height: 100%; z-index: 50;
+            }
+            .sidebar.open { transform: translateX(0); }
+        }
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-backdrop.visible { opacity: 1; visibility: visible; }
+        .modal-content {
+            background: white; padding: 1.5rem; border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+            transform: scale(0.95) translateY(10px); transition: transform 0.3s ease;
+            max-width: 450px; width: 90%;
+        }
+        .modal-backdrop.visible .modal-content { transform: scale(1) translateY(0); }
+
+        .sidebar-link.active {
+            background-color: #4f46e5; color: white; font-weight: 600;
+        }
+        .sidebar-link.active i { color: white !important; }
+
+        .json-viewer-container {
+            border: 1px solid #e2e8f0; border-radius: 0.75rem; background-color: #ffffff;
+            box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.05);
+        }
+        .json-viewer-tabs button {
+            padding: 0.5rem 1rem; font-weight: 600; font-size: 0.875rem; color: #475569;
+            border-bottom: 2px solid transparent; transition: all 0.2s;
+        }
+        .json-viewer-tabs button.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+        .json-viewer-content { padding: 0.75rem; }
+        .json-viewer-content .view-panel { display: none; }
+        .json-viewer-content .view-panel.active { display: block; }
+        .json-table { width: 100%; border-collapse: collapse; }
+        .json-table th, .json-table td { border: 1px solid #e2e8f0; padding: 0.4rem 0.6rem; text-align: left; font-size: 0.8rem; transition: background-color 0.2s; }
+        .json-table th { background-color: #f8fafc; cursor: pointer; }
+        .json-table th:hover { background-color: #f1f5f9; }
+        .json-table tbody tr:hover td { background-color: #f1f5f9; }
+        .json-table td[contenteditable="true"]:focus { background-color: #eef2ff; outline: 1px solid #6366f1; }
+        .json-code-view {
+            background-color: #1e293b; color: #e2e8f0; padding: 0.75rem; border-radius: 0.5rem;
+            min-height: 300px; width: 100%;
+            overflow: auto; font-family: monospace; font-size: 0.8rem;
+            border: none; resize: vertical;
+        }
+
+        .form-input, .inspector-input {
+            width: 100%; padding: 0.5rem 0.75rem; background-color: #f8fafc; font-size: 0.875rem;
+            border: 1px solid #d1d5db; border-radius: 0.5rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .form-input:focus, .inspector-input:focus {
+            border-color: #4f46e5; background-color: white; outline: none;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+        .logic-note {
+            font-size: 0.7rem; color: #64748b; margin-top: 0.25rem;
+        }
+
+        .tab-nav button {
+            padding: 0.5rem 1rem; font-weight: 600; font-size: 0.875rem; color: #475569;
+            border-bottom: 2px solid transparent; transition: all 0.2s;
+        }
+        .tab-nav button.active { color: #4f46e5; border-bottom-color: #4f46e5; background-color: #eef2ff; border-radius: 0.5rem 0.5rem 0 0; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .qalam-editor-textarea { height: 250px; font-family: monospace; font-size: 0.8rem; resize: vertical; }
+        .qalam-editor-preview { border: 1px solid #d1d5db; border-radius: 0.5rem; background-color: white; flex-grow: 1; height: 200px; }
+        
+        button, .sidebar-link { transition: all 0.2s ease-in-out; }
+        button:hover, .sidebar-link:hover { transform: translateY(-1px); }
+        button:active { transform: translateY(0px) scale(0.98); }
+        .shadow-hover-enhanced:hover { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+
+        .searchable-dropdown { position: relative; }
+        .searchable-dropdown-input { cursor: pointer; }
+        .searchable-dropdown-list {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: white; border: 1px solid #d1d5db; border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            max-height: 200px; overflow-y: auto; z-index: 100;
+            display: none;
+        }
+        .searchable-dropdown-list.open { display: block; }
+        .searchable-dropdown-list .search-input {
+            border: none; border-bottom: 1px solid #e5e7eb;
+            border-radius: 0.5rem 0.5rem 0 0;
+            padding: 0.5rem 0.75rem;
+        }
+        .searchable-dropdown-list .search-input:focus {
+            outline: none; box-shadow: none; border-color: #4f46e5;
+        }
+        .searchable-dropdown-item {
+            padding: 0.5rem 0.75rem; cursor: pointer;
+        }
+        .searchable-dropdown-item:hover { background-color: #f3f4f6; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .line-layout-selector {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .line-layout-option {
+            border: 2px solid #d1d5db;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            text-align: center;
+            background-color: #f9fafb;
+        }
+        .line-layout-option:hover {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+        }
+        .line-layout-option.selected {
+            border-color: #4f46e5;
+            background-color: #4f46e5;
+            color: white;
+            font-weight: 600;
+        }
+        .line-layout-option i {
+            font-size: 1.5rem;
+            display: block;
+            margin: 0 auto 0.5rem;
+        }
+
+        .sidebar-submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out;
+            padding-left: 1.5rem;
+        }
+        .sidebar-submenu.open {
+            max-height: 500px; /* Adjust as needed */
+        }
+        .sidebar-parent-link .toggle-icon {
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-parent-link.open .toggle-icon {
+            transform: rotate(90deg);
+        }
+
+        /* Rich Text Editor Styles */
+        .rich-text-editor-toolbar {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.5rem;
+            background-color: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .rte-btn {
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.375rem;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        .rte-btn:hover {
+            background-color: #eef2ff;
+            color: #4f46e5;
+        }
+        .rte-select {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            background-color: #f9fafb;
+        }
+        .rich-text-editor-content {
+            min-height: 120px;
+            padding: 0.75rem;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+            border-top: none;
+            outline: none;
+        }
+        .rich-text-editor-content:focus {
+            border-color: #4f46e5;
+            box-shadow: none;
+        }
+
+        /* Table of Contents Editor Styles */
+        .toc-editor-item {
+            transition: background-color 0.2s;
+        }
+        .toc-editor-item:hover {
+            background-color: #f1f5f9;
+        }
+        .toc-editor-item .actions button {
+            color: #64748b;
+        }
+        .toc-editor-item .actions button:hover {
+            color: #1e293b;
+        }
+
+        @media (max-width: 767px) {
+            .responsive-table-container table,
+            .responsive-table-container thead,
+            .responsive-table-container tbody,
+            .responsive-table-container th,
+            .responsive-table-container td,
+            .responsive-table-container tr {
+                display: block;
+            }
+
+            .responsive-table-container thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+
+            .responsive-table-container tr {
+                border: 1px solid #e2e8f0;
+                border-radius: 0.5rem;
+                margin-bottom: 1rem;
+                background-color: white;
+                box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+            }
+
+            .responsive-table-container td {
+                border: none;
+                border-bottom: 1px solid #f1f5f9;
+                position: relative;
+                padding-left: 50%;
+                text-align: right;
+                padding-top: 0.75rem;
+                padding-bottom: 0.75rem;
+            }
+
+            .responsive-table-container td:before {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                left: 1rem;
+                width: 45%;
+                padding-right: 0.5rem;
+                white-space: nowrap;
+                text-align: left;
+                font-weight: 600;
+                color: #475569;
+                font-size: 0.75rem;
+                content: attr(data-label);
+            }
+            
+            .responsive-table-container td:last-child {
+                border-bottom: 0;
+            }
+            
+            .responsive-table-container td.actions-cell {
+                padding-left: 1rem;
+                text-align: center;
+            }
+            
+            .responsive-table-container td.actions-cell:before {
+                content: "";
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+    <div id="adminPanel" class="relative min-h-screen lg:flex">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar bg-slate-900 text-slate-300 flex flex-col shadow-2xl">
+            <div class="p-4 text-xl font-bold text-white border-b border-slate-700/50 flex items-center gap-3">
+                <i class="bi bi-moon-stars-fill text-indigo-400"></i> Naat Academy
+            </div>
+            <nav id="sidebar-nav" class="flex-1 px-3 py-3 space-y-1 overflow-y-auto"></nav>
+        </aside>
+
+        <!-- Overlay for mobile -->
+        <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black opacity-50 z-40 lg:hidden"></div>
+
+        <!-- Main Content -->
+        <div class="flex-1">
+            <header class="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-30 flex items-center justify-between p-3 lg:hidden">
+                <h1 class="text-lg font-bold">Naat Academy</h1>
+                <button id="menu-toggle-btn" class="p-2 rounded-md hover:bg-slate-100"><i class="bi bi-list text-xl"></i></button>
+            </header>
+            <main id="mainContent" class="p-3 sm:p-4 lg:p-6"></main>
+        </div>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const app = {
+            cache: {},
+            state: {
+                currentView: 'dashboard',
+                jsonDataViewers: {},
+                editingItemId: null,
+                searchableDropdowns: [],
+            },
+            elements: {
+                mainContent: document.getElementById('mainContent'),
+                sidebarNav: document.getElementById('sidebar-nav'),
+                sidebar: document.getElementById('sidebar'),
+                sidebarOverlay: document.getElementById('sidebar-overlay'),
+                menuToggleBtn: document.getElementById('menu-toggle-btn'),
+                modalContainer: document.getElementById('modal-container'),
+            },
+            config: {
+                sidebarLinks: [
+                    { title: 'Dashboard', view: 'dashboard', icon: 'grid-1x2-fill', color: 'text-sky-400' },
+                    { type: 'header', title: 'Content' },
+                    { title: 'Poetry', view: 'kalaam', icon: 'journal-richtext', color: 'text-emerald-400' },
+                    { title: 'Articles', view: 'articles', icon: 'file-text-fill', color: 'text-cyan-400' },
+                    { 
+                        title: 'Books', 
+                        view: 'books', 
+                        icon: 'book-fill', 
+                        color: 'text-violet-400',
+                        children: [
+                            { title: 'Kalam Books', view: 'books', bookType: 'Kalam Book', icon: 'journal-richtext' },
+                            { title: 'Article (PDF) Books', view: 'books', bookType: 'Article (PDF) Book', icon: 'file-pdf' },
+                            { title: 'E-Books', view: 'books', bookType: 'E-Book', icon: 'book' },
+                        ]
+                    },
+                    { title: 'Writers', view: 'poets', icon: 'people-fill', color: 'text-rose-400' },
+                    { title: 'Tunes', view: 'tunes', icon: 'music-note-beamed', color: 'text-orange-400' },
+                    { type: 'header', title: 'Organization' },
+                    { title: 'Book Folders', view: 'bookFolders', icon: 'folder2-open', color: 'text-yellow-400' },
+                    { title: 'Section Pages', view: 'sectionPages', icon: 'file-earmark-break', color: 'text-indigo-400' },
+                    { title: 'Groups', view: 'groups', icon: 'collection-fill', color: 'text-amber-400' },
+                    { title: 'Categories', view: 'categories', icon: 'folder-fill', color: 'text-pink-400' },
+                    { title: 'Topics', view: 'topics', icon: 'hash', color: 'text-lime-400' },
+                    { title: 'Languages', view: 'languages', icon: 'translate', color: 'text-teal-400' },
+                    { type: 'header', title: 'System' },
+                    { title: 'Users', view: 'users', icon: 'person-gear', color: 'text-slate-400' },
+                ],
+                sectionConfigs: {
+                    poets: {
+                        title: 'Writers', singular: 'Writer',
+                        fields: [
+                            { id: 'name', label: 'Name', type: 'text', required: true, logic: 'The full name of the writer.' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'dates', label: 'Dates', type: 'text', logic: 'Birth and death years, e.g., 1877-1938.' },
+                            { id: 'hometown', label: 'Hometown', type: 'text', logic: 'The city or place of origin.' },
+                            { id: 'bio', label: 'Biography', type: 'textarea', logic: 'A short biography of the writer.' },
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                            { type: 'seo' }
+                        ],
+                        columns: [
+                            { header: 'Name', render: item => `<span class="font-bold">${item.name}</span>` },
+                            { header: 'Slug', render: item => item.slug || 'N/A' },
+                            { header: 'Dates', render: item => item.dates || 'N/A' },
+                        ]
+                    },
+                    kalaam: {
+                        title: 'Poetry', singular: 'Poetry',
+                        fields: [
+                            { id: 'title', label: 'Title', type: 'text', required: true, logic: 'The first line or title of the poetry.' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'thumbnail', label: 'Thumbnail', type: 'file', logic: 'Upload a thumbnail image.' },
+                            { id: 'poetId', label: 'Poet', type: 'select', dataKey: 'poets', textKey: 'name', valueKey: 'id', logic: 'Link to an existing writer.' },
+                            { id: 'bookId', label: 'Book', type: 'select', dataKey: 'books', textKey: 'title', valueKey: 'id', logic: 'Assign to a book.' },
+                            { id: 'lyricsLineLayout', label: 'Lyrics Line Layout', type: 'line-layout', options: [2, 3, 4, 5, 6], logic: 'Select number of lines before a break.' },
+                            { type: 'group', title: 'Lyrics', fields: [
+                                { id: 'lyricsUrdu', label: 'Urdu', type: 'textarea' },
+                                { id: 'lyricsRoman', label: 'Roman', type: 'textarea' },
+                                { id: 'lyricsEnglish', label: 'English', type: 'textarea' },
+                                { id: 'lyricsArabic', label: 'Arabic', type: 'textarea' },
+                                { id: 'lyricsHindi', label: 'Hindi', type: 'textarea' },
+                            ]},
+                            { id: 'kalamTextDictionary', label: 'Kalam Text Dictionary', type: 'textarea', logic: 'Unique words from lyrics. Can be auto-generated.' },
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                             { type: 'seo' }
+                        ],
+                        columns: [
+                            { header: 'Title', render: item => `<span class="font-bold">${item.title}</span>` },
+                            { header: 'Poet', render: item => app.cache.poets.find(p => p.id === item.poetId)?.name || 'N/A' },
+                            { header: 'Book', render: item => {
+                                const book = app.cache.books.find(b => b.id === item.bookId);
+                                return book ? `${book.title} <span class="text-xs text-slate-500">(${book.bookType})</span>` : 'N/A';
+                            }},
+                        ],
+                    },
+                    articles: {
+                        title: 'Articles', singular: 'Article',
+                        fields: [
+                            { id: 'title', label: 'Title', type: 'text', required: true, logic: 'The main title of the article.' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'thumbnail', label: 'Thumbnail', type: 'file', logic: 'Upload a thumbnail image.' },
+                            { id: 'writerId', label: 'Writer', type: 'select', dataKey: 'poets', textKey: 'name', valueKey: 'id', logic: 'Assign an author.' },
+                            { id: 'bookId', label: 'Book', type: 'select', dataKey: 'books', textKey: 'title', valueKey: 'id', logic: 'Assign to a book.' },
+                            { type: 'group', title: 'Content', fields: [
+                                { id: 'contentUrdu', label: 'Urdu', type: 'textarea', rows: 6 },
+                                { id: 'contentRoman', label: 'Roman', type: 'textarea', rows: 6 },
+                                { id: 'contentEnglish', label: 'English', type: 'textarea', rows: 6 },
+                                { id: 'contentArabic', label: 'Arabic', type: 'textarea', rows: 6 },
+                                { id: 'contentHindi', label: 'Hindi', type: 'textarea', rows: 6 },
+                            ]},
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                             { type: 'seo' }
+                        ],
+                        columns: [
+                            { header: 'Title', render: item => `<span class="font-bold">${item.title}</span>` },
+                            { header: 'Writer', render: item => app.cache.poets.find(p => p.id === item.writerId)?.name || 'N/A' },
+                            { header: 'Book', render: item => {
+                                const book = app.cache.books.find(b => b.id === item.bookId);
+                                return book ? `${book.title} <span class="text-xs text-slate-500">(${book.bookType})</span>` : 'N/A';
+                            }},
+                        ],
+                    },
+                    books: {
+                        isSpecialFlow: true, // This will trigger the card view instead of the standard table/form
+                        title: 'Books', singular: 'Book',
+                        types: [
+                            { type: 'Kalam Book', icon: 'journal-richtext', description: 'A collection of poetry.' },
+                            { type: 'Article (PDF) Book', icon: 'file-pdf', description: 'A book composed of articles, often in PDF format.' },
+                            { type: 'E-Book', icon: 'book', description: 'A digital book with chapters and content.' },
+                        ],
+                        fields: [
+                            { id: 'title', label: 'Title', type: 'text', required: true, logic: 'The title of the book.' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'authorId', label: 'Author', type: 'select', dataKey: 'poets', textKey: 'name', valueKey: 'id', logic: 'The author of the book.' },
+                            { id: 'bookType', label: 'Book Type', type: 'select', options: ['Kalam Book', 'Article (PDF) Book', 'E-Book'], logic: 'Select the type of book.'},
+                            { id: 'folderId', label: 'Book Folder', type: 'select', dataKey: 'bookFolders', textKey: 'name', valueKey: 'id', logic: 'Assign to a folder.'},
+                            { id: 'categoryId', label: 'Category', type: 'select', dataKey: 'categories', textKey: 'name', valueKey: 'id', logic: 'Assign a category.' },
+                            { id: 'topicId', label: 'Topic', type: 'select', dataKey: 'topics', textKey: 'name', valueKey: 'id', logic: 'Assign a topic.' },
+                            { id: 'languageId', label: 'Language', type: 'select', dataKey: 'languages', textKey: 'name', valueKey: 'id', logic: 'Assign a language.' },
+                            { id: 'description', label: 'Description', type: 'textarea', logic: 'A brief summary of the book.' },
+                            { id: 'pdfFile', label: 'PDF File', type: 'pdf-upload', logic: 'Upload the PDF file for the book.', showIf: 'bookType', showValue: 'Article (PDF) Book' },
+                            { id: 'tableOfContents', label: 'Table of Contents (Index)', type: 'toc-editor', logic: 'For E-books, manage chapters and sections.', showIf: 'bookType', showValue: 'E-Book' },
+                             { 
+                                id: 'contentGroup',
+                                type: 'group', 
+                                title: 'Content', 
+                                fields: [
+                                    { id: 'contentUrdu', label: 'Urdu', type: 'richtext', rows: 6 },
+                                    { id: 'contentRoman', label: 'Roman', type: 'richtext', rows: 6 },
+                                    { id: 'contentArabic', label: 'Arabic', type: 'richtext', rows: 6 },
+                                ],
+                                showIf: 'bookType', 
+                                showValue: ['E-Book', 'Article (PDF) Book']
+                            },
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                             { type: 'seo' }
+                        ],
+                        columns: [
+                            { header: 'Title', render: item => `<span class="font-bold">${item.title}</span>` },
+                            { header: 'Author', render: item => app.cache.poets.find(p => p.id === item.authorId)?.name || 'N/A' },
+                            { header: 'Folder', render: item => app.cache.bookFolders.find(f => f.id === item.folderId)?.name || 'N/A'},
+                            { header: 'Type', render: item => item.bookType || 'N/A' },
+                        ]
+                    },
+                    tunes: {
+                        title: 'Tunes', singular: 'Tune',
+                        fields: [
+                            { id: 'bahar', label: 'Bahar', type: 'text', required: true, logic: 'The Bahar (meter) of the tune.' },
+                            { id: 'tarz', label: 'Tarz', type: 'text', required: true, logic: 'The Tarz (style) of the tune.' },
+                            { id: 'about', label: 'About', type: 'textarea', logic: 'A description of the tune.' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'thumbnail', label: 'Thumbnail', type: 'file', logic: 'Upload a thumbnail image.' },
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                            { type: 'seo' }
+                        ],
+                        columns: [
+                            { header: 'Bahar', render: item => `<span class="font-bold">${item.bahar}</span>` },
+                            { header: 'Tarz', render: item => item.tarz },
+                        ]
+                    },
+                    bookFolders: {
+                        title: 'Book Folders', singular: 'Folder',
+                        fields: [
+                            { id: 'name', label: 'Folder Name', type: 'text', required: true, logic: 'The name of the folder, e.g., "Classical Kalam".' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'thumbnail', label: 'Thumbnail', type: 'file', logic: 'Upload a thumbnail for the folder.' },
+                            { id: 'bookType', label: 'Book Type', type: 'select', options: ['Kalam Book', 'Article Book', 'E-book'], logic: 'The type of books this folder will contain.'},
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                        ],
+                        columns: [
+                            { header: 'Name', render: item => `<span class="font-bold">${item.name}</span>` },
+                            { header: 'Slug', render: item => item.slug || 'N/A' },
+                            { header: 'Book Type', render: item => item.bookType || 'N/A' },
+                        ]
+                    },
+                    groups: {
+                        title: 'Groups', singular: 'Group',
+                        fields: [
+                            { id: 'name', label: 'Name', type: 'text', required: true, logic: 'A high-level collection, e.g., "Classical".' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'thumbnail', label: 'Thumbnail', type: 'file', logic: 'Upload a thumbnail for the group.' },
+                            { id: 'description', label: 'Description', type: 'textarea', logic: 'What this group contains.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                        ],
+                        columns: [
+                            { header: 'Name', render: item => `<span class="font-bold">${item.name}</span>` },
+                            { header: 'Slug', render: item => item.slug || 'N/A' },
+                        ]
+                    },
+                    categories: {
+                        title: 'Categories', singular: 'Category',
+                        fields: [
+                            { id: 'name', label: 'Name', type: 'text', required: true, logic: 'The content type, e.g., "Naat", "Hamd".' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'thumbnail', label: 'Thumbnail', type: 'file', logic: 'Upload a thumbnail for the category.' },
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                        ],
+                        columns: [ 
+                            { header: 'Name', render: item => `<span class="font-bold">${item.name}</span>` },
+                            { header: 'Slug', render: item => item.slug || 'N/A' },
+                        ]
+                    },
+                    topics: {
+                        title: 'Topics', singular: 'Topic',
+                        fields: [ 
+                            { id: 'name', label: 'Name', type: 'text', required: true, logic: 'A specific subject, e.g., "Miraj-un-Nabi".' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'thumbnail', label: 'Thumbnail', type: 'file', logic: 'Upload a thumbnail for the topic.' },
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                        ],
+                        columns: [ 
+                            { header: 'Name', render: item => `<span class="font-bold">${item.name}</span>` },
+                            { header: 'Slug', render: item => item.slug || 'N/A' },
+                        ]
+                    },
+                    languages: {
+                        title: 'Languages', singular: 'Language',
+                        fields: [ 
+                            { id: 'name', label: 'Name', type: 'text', required: true, logic: 'e.g., Urdu, Arabic.' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                            { id: 'thumbnail', label: 'Thumbnail', type: 'file', logic: 'Upload a thumbnail for the language.' },
+                            { id: 'groupId', label: 'Assign to Group', type: 'select', dataKey: 'groups', textKey: 'name', valueKey: 'id', logic: 'Assign this to a group.' },
+                            { id: 'sectionId', label: 'Assign to Section', type: 'select', dataKey: 'sectionPages', textKey: 'name', valueKey: 'id', logic: 'Assign this to a section page.' },
+                        ],
+                        columns: [ 
+                            { header: 'Name', render: item => `<span class="font-bold">${item.name}</span>` },
+                            { header: 'Slug', render: item => item.slug || 'N/A' },
+                        ]
+                    },
+                    sectionPages: {
+                        title: 'Section Pages', singular: 'Section Page',
+                        fields: [ 
+                            { id: 'name', label: 'Name', type: 'text', required: true, logic: 'The name of the section page.' },
+                            { id: 'slug', label: 'Slug', type: 'text', readonly: true, logic: 'Auto-generated for the URL.' },
+                        ],
+                        columns: [ 
+                            { header: 'Name', render: item => `<span class="font-bold">${item.name}</span>` },
+                            { header: 'Slug', render: item => item.slug || 'N/A' },
+                        ]
+                    },
+                    users: {
+                        title: 'Users', singular: 'User',
+                        fields: [
+                            { id: 'name', label: 'Full Name', type: 'text', required: true, logic: 'The user\'s full name.' },
+                            { id: 'email', label: 'Email Address', type: 'email', required: true, logic: 'The user\'s login email. Must be unique.' },
+                            { id: 'role', label: 'Role', type: 'select', options: ['Admin', 'Editor', 'Viewer'], logic: 'Set user permissions.' },
+                        ],
+                        columns: [
+                            { header: 'Name', render: item => `<span class="font-bold">${item.name}</span>` },
+                            { header: 'Email', render: item => item.email },
+                            { header: 'Role', render: item => item.role },
+                        ]
+                    }
+                }
+            },
+
+            init() {
+                this.loadDummyData();
+                this.renderSidebar();
+                this.attachEventListeners();
+                this.showView('dashboard');
+            },
+
+            generateId() {
+                return '_' + Math.random().toString(36).substr(2, 9);
+            },
+
+            loadDummyData() {
+                const now = new Date();
+                this.cache = {
+                    poets: [
+                        { id: 'p1', name: 'Allama Iqbal', slug: 'allama-iqbal', dates: '1877-1938', hometown: 'Sialkot', bio: 'Doctor Muhammad Iqbal...', createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2).toISOString() },
+                        { id: 'p2', name: 'Ahmed Raza Khan Barelvi', slug: 'ahmed-raza-khan-barelvi', dates: '1856-1921', hometown: 'Bareilly', bio: 'Imam Ahmed Raza Khan Barelvi was...', createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 5).toISOString() },
+                    ],
+                    kalaam: [
+                        { id: 'k1', title: 'Lab Pe Aati Hai Dua', slug: 'lab-pe-aati-hai-dua', poetId: 'p1', bookId: 'b1', lyricsLineLayout: 2, createdAt: new Date(now.getTime() - 1000 * 60 * 5).toISOString() },
+                        { id: 'k2', title: 'Mustafa Jaan E Rehmat', slug: 'mustafa-jaan-e-rehmat', poetId: 'p2', bookId: 'b2', lyricsLineLayout: 4, createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 25).toISOString() },
+                    ],
+                    articles: [
+                        { id: 'a1', title: 'The Philosophy of Khudi', slug: 'the-philosophy-of-khudi', writerId: 'p1', bookId: null, createdAt: new Date(now.getTime() - 1000 * 60 * 60).toISOString() },
+                    ],
+                    books: [
+                        { id: 'b1', title: 'Kulliyat-e-Iqbal', slug: 'kulliyat-e-iqbal', authorId: 'p1', folderId: 'bf1', bookType: 'Kalam Book', createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 72).toISOString() },
+                        { id: 'b2', title: 'Hadaeq e Bakhshish', slug: 'hadaeq-e-bakhshish', authorId: 'p2', folderId: 'bf2', bookType: 'E-Book', tableOfContents: [{title: 'Chapter One', level: 0}, {title: 'Chapter Two', level: 0}], createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 48).toISOString() },
+                    ],
+                    kalamBooks: [],
+                    articleBooks: [],
+                    ebooks: [],
+                    tunes: [
+                        { id: 't1', bahar: 'Bahar-e-Rajaz', tarz: 'Classical', about: 'A classic tune.', slug: 'bahar-e-rajaz-classical', createdAt: now.toISOString() }
+                    ],
+                    bookFolders: [
+                        { id: 'bf1', name: 'Iqbaliyat', slug: 'iqbaliyat', bookType: 'Kalam Book', createdAt: now.toISOString() },
+                        { id: 'bf2', name: 'Naatiya Adab', slug: 'naatiya-adab', bookType: 'E-book', createdAt: now.toISOString() },
+                    ],
+                    groups: [ { id: 'g1', name: 'Classical', slug: 'classical', description: '...', createdAt: now.toISOString() } ],
+                    categories: [ { id: 'c1', name: 'Naat', slug: 'naat', createdAt: now.toISOString() } ],
+                    topics: [ { id: 't1', name: 'Praise of the Prophet', slug: 'praise-of-the-prophet', createdAt: now.toISOString() } ],
+                    languages: [ { id: 'l1', name: 'Urdu', slug: 'urdu', createdAt: now.toISOString() } ],
+                    sectionPages: [ { id: 'sp1', name: 'Main Section', slug: 'main-section', createdAt: now.toISOString() } ],
+                    users: [
+                        { id: 'u1', name: 'Admin User', email: 'admin@naat.academy', role: 'Admin', createdAt: now.toISOString() },
+                        { id: 'u2', name: 'Editor User', email: 'editor@naat.academy', role: 'Editor', createdAt: now.toISOString() }
+                    ],
+                };
+            },
+            
+            renderSidebar() {
+                this.elements.sidebarNav.innerHTML = this.config.sidebarLinks.map(link => {
+                    if (link.type === 'header') {
+                        return `<p class="px-3 pt-3 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">${link.title}</p>`;
+                    }
+                    if (link.children) {
+                        const childrenHtml = link.children.map(child => `
+                            <a href="#" data-view="${child.view}" data-book-type="${child.bookType || ''}" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-slate-800 hover:text-white transition-all text-sm">
+                                <i class="bi bi-${child.icon} text-xs"></i><span>${child.title}</span>
+                            </a>
+                        `).join('');
+                        return `
+                            <div>
+                                <a href="#" data-view="${link.view}" class="sidebar-link sidebar-parent-link flex items-center justify-between gap-3 px-3 py-2.5 rounded-md hover:bg-slate-800 hover:text-white transition-all text-sm">
+                                    <div class="flex items-center gap-3">
+                                        <i class="bi bi-${link.icon} ${link.color}"></i><span>${link.title}</span>
+                                    </div>
+                                    <i class="bi bi-chevron-right toggle-icon"></i>
+                                </a>
+                                <div class="sidebar-submenu">${childrenHtml}</div>
+                            </div>
+                        `;
+                    }
+                    return `<a href="#" data-view="${link.view}" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-slate-800 hover:text-white transition-all text-sm">
+                                <i class="bi bi-${link.icon} ${link.color}"></i><span>${link.title}</span>
+                            </a>`;
+                }).join('');
+            },
+
+            attachEventListeners() {
+                this.elements.sidebarNav.addEventListener('click', e => {
+                    e.preventDefault();
+                    const link = e.target.closest('.sidebar-link');
+                    if (!link) return;
+
+                    if (link.classList.contains('sidebar-parent-link')) {
+                        link.classList.toggle('open');
+                        link.nextElementSibling.classList.toggle('open');
+                    } else {
+                        const view = link.dataset.view;
+                        const bookType = link.dataset.bookType;
+                        if (bookType) {
+                             this.showView(view, { viewMode: 'form', bookType: bookType });
+                        } else {
+                             this.showView(view);
+                        }
+                    }
+                });
+
+                this.elements.menuToggleBtn.addEventListener('click', () => this.toggleSidebar());
+                this.elements.sidebarOverlay.addEventListener('click', () => this.toggleSidebar());
+                document.addEventListener('click', (e) => {
+                    this.state.searchableDropdowns.forEach(dropdown => {
+                        if (dropdown && dropdown.container && !dropdown.container.contains(e.target)) {
+                            dropdown.close();
+                        }
+                    });
+                });
+            },
+
+            toggleSidebar() {
+                this.elements.sidebar.classList.toggle('open');
+                this.elements.sidebarOverlay.classList.toggle('hidden');
+            },
+
+            showView(viewId, params = {}) {
+                this.state.currentView = viewId;
+                this.elements.mainContent.innerHTML = `<div id="${viewId}-view" class="view active"></div>`;
+                
+                this.elements.sidebarNav.querySelectorAll('.sidebar-link').forEach(link => {
+                    const isActive = link.dataset.view === viewId && !link.classList.contains('sidebar-parent-link');
+                    link.classList.toggle('active', isActive);
+                });
+
+                if (window.innerWidth < 1024 && this.elements.sidebar.classList.contains('open')) {
+                    this.toggleSidebar();
+                }
+
+                if (viewId === 'dashboard') this.renderDashboard();
+                else this.renderSectionPage(viewId, params);
+            },
+
+            formatTimeAgo(isoString) {
+                const date = new Date(isoString);
+                const now = new Date();
+                const seconds = Math.round((now - date) / 1000);
+                if (seconds < 60) return `${seconds} sec ago`;
+                const minutes = Math.round(seconds / 60);
+                if (minutes < 60) return `${minutes} min ago`;
+                const hours = Math.round(minutes / 60);
+                if (hours < 24) return `${hours} hours ago`;
+                const days = Math.round(hours / 24);
+                return `${days} days ago`;
+            },
+
+            renderDashboard() {
+                const viewContainer = document.getElementById('dashboard-view');
+                if (!viewContainer) return;
+
+                const contentStats = [
+                    { title: 'Poetry', view: 'kalaam', count: this.cache.kalaam?.length || 0, icon: 'journal-richtext', color: 'text-emerald-400' },
+                    { title: 'Articles', view: 'articles', count: this.cache.articles?.length || 0, icon: 'file-text-fill', color: 'text-cyan-400' },
+                    { title: 'Books', view: 'books', count: this.cache.books?.length || 0, icon: 'book-fill', color: 'text-violet-400' },
+                    { title: 'Writers', view: 'poets', count: this.cache.poets?.length || 0, icon: 'people-fill', color: 'text-rose-400' },
+                ];
+
+                const orgStats = [
+                    { title: 'Book Folders', view: 'bookFolders', count: this.cache.bookFolders?.length || 0, icon: 'folder2-open', color: 'text-yellow-400' },
+                    { title: 'Groups', view: 'groups', count: this.cache.groups?.length || 0, icon: 'collection-fill', color: 'text-amber-400' },
+                    { title: 'Categories', view: 'categories', count: this.cache.categories?.length || 0, icon: 'folder-fill', color: 'text-pink-400' },
+                    { title: 'Topics', view: 'topics', count: this.cache.topics?.length || 0, icon: 'hash', color: 'text-lime-400' },
+                ];
+
+                const allItems = [];
+                const contentKeys = ['kalaam', 'articles', 'books', 'poets'];
+                contentKeys.forEach(key => {
+                    const sectionConfig = this.config.sectionConfigs[key];
+                    const sidebarConfig = this.config.sidebarLinks.find(l => l.view === key);
+                    if (this.cache[key] && sectionConfig && sidebarConfig) {
+                        this.cache[key].forEach(item => {
+                            allItems.push({ ...item, itemType: sectionConfig.singular, itemIcon: sidebarConfig.icon, itemIconColor: sidebarConfig.color, view: key });
+                        });
+                    }
+                });
+                const recentItems = allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+                const recentActivityHtml = recentItems.length > 0 ? recentItems.map(item => {
+                    const title = item.title || item.name || 'Untitled';
+                    return `<li class="flex items-center gap-4 py-3"><div class="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full"><i class="bi bi-${item.itemIcon} text-lg ${item.itemIconColor}"></i></div><div class="flex-1 min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${item.itemType}: ${title}</p><p class="text-xs text-slate-500">Added ${this.formatTimeAgo(item.createdAt)}</p></div><button data-view="${item.view}" class="text-xs font-bold text-indigo-600 hover:underline">View</button></li>`;
+                }).join('') : '<p class="text-center py-8 text-sm text-slate-500">No recent activity.</p>';
+
+                const chartData = contentStats;
+                const maxCount = Math.max(...chartData.map(d => d.count), 1);
+                const chartHtml = chartData.map(d => `
+                    <div class="grid grid-cols-4 items-center gap-2 text-sm">
+                        <div class="font-semibold text-slate-600">${d.title}</div>
+                        <div class="col-span-3 bg-slate-100 rounded-full h-6">
+                            <div class="bg-indigo-500 h-6 rounded-full flex items-center justify-between px-2 text-white font-bold text-xs" style="width: ${ (d.count / maxCount) * 100}%">
+                                <span>${d.count}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                const renderStatCard = (stat) => `
+                    <div class="bg-white rounded-xl shadow p-4 flex flex-col justify-between shadow-hover-enhanced transition-all duration-300 border border-slate-200/80">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h3 class="font-bold text-slate-800">${stat.title}</h3>
+                                <p class="text-3xl font-extrabold text-slate-900 mt-2">${stat.count}</p>
+                            </div>
+                            <div class="p-2.5 bg-slate-100 rounded-lg"><i class="bi bi-${stat.icon} text-xl ${stat.color}"></i></div>
+                        </div>
+                        <button data-view="${stat.view}" class="manage-btn mt-4 w-full text-center px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200 transition-colors duration-200">
+                            View & Manage
+                        </button>
+                    </div>`;
+
+                viewContainer.innerHTML = `
+                    <h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900 mb-1">Welcome Back!</h1>
+                    <p class="text-slate-600 mb-6">Here's a summary of your academy's content and organization.</p>
+                    
+                    <div class="space-y-6">
+                        <div class="bg-white rounded-xl shadow p-5 border border-slate-200/80">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-bold text-slate-900">Content Overview</h2>
+                                <button class="quick-link-btn text-sm font-bold text-indigo-600 hover:underline" data-view="kalaam">Add New Poetry +</button>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">${contentStats.map(renderStatCard).join('')}</div>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow p-5 border border-slate-200/80">
+                             <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-bold text-slate-900">Organization Overview</h2>
+                                <button class="quick-link-btn text-sm font-bold text-indigo-600 hover:underline" data-view="topics">Add New Topic +</button>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">${orgStats.map(renderStatCard).join('')}</div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-xl shadow p-5 border border-slate-200/80">
+                                <h2 class="text-lg font-bold text-slate-900 mb-4">Recent Activity</h2>
+                                <ul class="divide-y divide-slate-200">${recentActivityHtml}</ul>
+                            </div>
+                            <div class="bg-white rounded-xl shadow p-5 border border-slate-200/80">
+                                <h2 class="text-lg font-bold text-slate-900 mb-4">Content Distribution</h2>
+                                <div class="space-y-3">${chartHtml}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                
+                viewContainer.querySelectorAll('.manage-btn, .quick-link-btn, [data-view]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const openForm = e.currentTarget.classList.contains('quick-link-btn');
+                        this.showView(e.currentTarget.dataset.view, { viewMode: openForm ? 'form' : 'list' });
+                    });
+                });
+            },
+            
+            renderSectionPage(sectionKey, params = {}) {
+                const config = this.config.sectionConfigs[sectionKey];
+                if (!config) {
+                     document.getElementById(`${sectionKey}-view`).innerHTML = `<div class="bg-white p-6 rounded-lg shadow-md"><h1 class="text-lg font-bold">Coming Soon: ${sectionKey}</h1><p class="mt-2 text-slate-600 text-sm">This section is under construction.</p></div>`;
+                     return;
+                }
+                
+                const viewContainer = document.getElementById(`${sectionKey}-view`);
+                const { viewMode = 'list', bookType = null, itemId = null } = params;
+                
+                if (config.isSpecialFlow && viewMode === 'list' && !bookType) {
+                    this.renderBookTypeSelector(viewContainer, config);
+                    return;
+                }
+
+                if (viewMode === 'form') {
+                    this.renderFormView(viewContainer, sectionKey, params);
+                } else {
+                    this.renderListView(viewContainer, sectionKey);
+                }
+            },
+            
+            renderListView(viewContainer, sectionKey) {
+                const config = this.config.sectionConfigs[sectionKey];
+                const items = this.cache[sectionKey] || [];
+                
+                viewContainer.innerHTML = `
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+                        <div><h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900">${config.title} Management</h1><p class="text-slate-500 mt-1">Create, view, and manage all ${config.title.toLowerCase()}.</p></div>
+                        <button id="mas-add-new-btn" class="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 font-bold text-white text-sm bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-md hover:shadow-indigo-600/40 transition-all duration-300"><i class="bi bi-plus-circle-fill"></i> Add New ${config.singular}</button>
+                    </div>
+                    <div class="border-b border-gray-200"><nav class="tab-nav -mb-px flex space-x-4" aria-label="Tabs"><button data-tab="management" class="aws-tab-btn active">Management</button><button data-tab="live-data" class="aws-tab-btn">Live Data</button></nav></div>
+                    <div id="mas-management-panel" class="tab-panel active mt-6">
+                        <div class="mb-4">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="bi bi-search text-slate-400"></i>
+                                </div>
+                                <input type="text" id="mas-search-input" class="form-input pl-10" placeholder="Search ${config.title}...">
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
+                            <div class="overflow-x-auto responsive-table-container">
+                                <table class="min-w-full">
+                                    <thead class="bg-slate-50"><tr>${config.columns.map(col => `<th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">${col.header}</th>`).join('')}<th scope="col" class="relative px-4 py-3"><span class="sr-only">Actions</span></th></tr></thead>
+                                    <tbody id="mas-table-body" class="divide-y divide-slate-200"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="mas-live-data-panel" class="tab-panel mt-6"><div id="mas-json-viewer-${sectionKey}"></div></div>`;
+                
+                this.renderTableBody(sectionKey, items);
+                this.state.jsonDataViewers[sectionKey] = new this.JsonDataViewer(`mas-json-viewer-${sectionKey}`, sectionKey, `Live Data: cache.${sectionKey}`);
+                this.attachListViewEventListeners(sectionKey);
+            },
+
+            renderFormView(viewContainer, sectionKey, params = {}) {
+                const { itemId = null, bookType = null } = params;
+                const config = this.config.sectionConfigs[sectionKey];
+                
+                const seoFieldsHtml = `
+                    <div class="col-span-full border-t pt-5 mt-5">
+                        <h3 class="text-md font-bold text-slate-800 mb-2">SEO & AEO Optimization</h3>
+                        <div class="space-y-4">
+                            <div><label for="form-seoTitle" class="font-semibold text-slate-700 text-sm">SEO Title</label><input type="text" id="form-seoTitle" class="form-input mt-1"></div>
+                            <div><label for="form-seoDescription" class="font-semibold text-slate-700 text-sm">SEO Description</label><textarea id="form-seoDescription" class="form-input mt-1" rows="2"></textarea></div>
+                            <div><label for="form-aeoSchema" class="font-semibold text-slate-700 text-sm">AEO (JSON-LD Schema)</label><textarea id="form-aeoSchema" class="form-input mt-1 font-mono text-xs" rows="4"></textarea></div>
+                            <button type="button" id="generate-seo-btn" class="text-xs font-bold px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 transition">Auto-Generate</button>
+                        </div>
+                    </div>`;
+
+                const formHtml = config.fields.map(field => {
+                    if (field.type === 'seo') return seoFieldsHtml;
+                    let inputHtml = '';
+                    if (field.type === 'group') {
+                        const groupFields = field.fields.map(f => {
+                             let fieldHtml = '';
+                             const rows = f.rows ? `rows="${f.rows}"` : 'rows="3"';
+                             if (f.type === 'richtext') {
+                                 fieldHtml = `
+                                     <div class="rich-text-editor border border-slate-300 rounded-lg mt-1">
+                                        <div class="rich-text-editor-toolbar flex items-center flex-wrap gap-1 p-2 border-b bg-slate-50 rounded-t-lg">
+                                            <select class="rte-select form-input text-xs !py-1 !px-2 !w-auto">
+                                                <option value="p">Paragraph</option>
+                                                <option value="h1">Heading 1</option>
+                                                <option value="h2">Heading 2</option>
+                                                <option value="h3">Heading 3</option>
+                                            </select>
+                                            <div class="flex items-center gap-1">
+                                                <button type="button" class="rte-btn" data-command="bold" title="Bold"><i class="bi bi-type-bold"></i></button>
+                                                <button type="button" class="rte-btn" data-command="italic" title="Italic"><i class="bi bi-type-italic"></i></button>
+                                                <button type="button" class="rte-btn" data-command="underline" title="Underline"><i class="bi bi-type-underline"></i></button>
+                                                <button type="button" class="rte-btn" data-command="strikeThrough" title="Strikethrough"><i class="bi bi-type-strikethrough"></i></button>
+                                            </div>
+                                            <div class="flex items-center gap-1">
+                                                <button type="button" class="rte-btn" data-command="justifyLeft" title="Align Left"><i class="bi bi-text-left"></i></button>
+                                                <button type="button" class="rte-btn" data-command="justifyCenter" title="Align Center"><i class="bi bi-text-center"></i></button>
+                                                <button type="button" class="rte-btn" data-command="justifyRight" title="Align Right"><i class="bi bi-text-right"></i></button>
+                                            </div>
+                                            <div class="flex items-center gap-1">
+                                                <button type="button" class="rte-btn" data-command="insertUnorderedList" title="Bullet List"><i class="bi bi-list-ul"></i></button>
+                                                <button type="button" class="rte-btn" data-command="insertOrderedList" title="Numbered List"><i class="bi bi-list-ol"></i></button>
+                                                <button type="button" class="rte-btn" data-command="formatBlock" data-value="blockquote" title="Blockquote"><i class="bi bi-quote"></i></button>
+                                            </div>
+                                            <div class="flex items-center gap-1">
+                                                <button type="button" class="rte-btn" data-command="createLink" title="Add Link"><i class="bi bi-link-45deg"></i></button>
+                                                <button type="button" class="rte-btn" data-command="unlink" title="Remove Link"><i class="bi bi-unlink"></i></button>
+                                            </div>
+                                            <div class="flex items-center gap-1">
+                                                <button type="button" class="rte-btn" data-command="undo" title="Undo"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                                <button type="button" class="rte-btn" data-command="redo" title="Redo"><i class="bi bi-arrow-clockwise"></i></button>
+                                            </div>
+                                        </div>
+                                         <div id="form-${f.id}" contenteditable="true" class="form-input rich-text-editor-content rounded-t-none !border-t-0" style="min-height: ${f.rows * 20}px;"></div>
+                                     </div>
+                                 `;
+                             } else { // default to textarea
+                                 fieldHtml = `<textarea id="form-${f.id}" class="form-input mt-1" ${rows}></textarea>`;
+                             }
+                             return `<div><label for="form-${f.id}" class="font-semibold text-slate-700 text-sm">${f.label}</label>${fieldHtml}<p class="logic-note">${f.logic || ''}</p></div>`;
+                        }).join('');
+                        return `<div id="field-wrapper-${field.id}" class="col-span-full field-wrapper">
+                                    <fieldset class="border p-4 rounded-md">
+                                        <legend class="px-2 font-bold text-slate-800">${field.title}</legend>
+                                        <div class="space-y-4">${groupFields}</div>
+                                    </fieldset>
+                                </div>`;
+                    }
+                    switch(field.type) {
+                        case 'textarea': 
+                            if (field.id === 'kalamTextDictionary') {
+                                inputHtml = `
+                                    <textarea id="form-${field.id}" class="form-input" rows="4"></textarea>
+                                    <button type="button" id="generate-dictionary-btn" class="mt-2 text-xs font-bold px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 transition">Auto Generate</button>
+                                `;
+                            } else {
+                                inputHtml = `<textarea id="form-${field.id}" class="form-input" rows="3"></textarea>`;
+                            }
+                            break;
+                        case 'select':
+                            const options = field.options ? field.options.map(o => ({value: o, text: o})) : (this.cache[field.dataKey] || []).map(o => ({value: o[field.valueKey], text: o[field.textKey]}));
+                            inputHtml = `<div id="s-dropdown-${field.id}" class="searchable-dropdown" data-options='${JSON.stringify(options)}'></div>`;
+                            break;
+                        case 'line-layout':
+                            inputHtml = `<div id="form-${field.id}" class="line-layout-selector">${field.options.map(o => `<div class="line-layout-option" data-value="${o}"><i class="bi bi-text-left"></i>${o} Lines</div>`).join('')}</div>`;
+                            break;
+                        case 'toc-editor':
+                             inputHtml = `
+                                <div id="form-${field.id}" class="toc-editor-container border border-slate-300 rounded-lg">
+                                    <div id="toc-items-list" class="p-2 space-y-1"></div>
+                                    <div class="p-2 border-t flex items-center gap-2">
+                                        <button type="button" id="add-toc-item-btn" class="text-xs font-bold px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 transition">
+                                            <i class="bi bi-plus"></i> Add Chapter
+                                        </button>
+                                        <button type="button" id="generate-toc-btn" class="text-xs font-bold px-3 py-1.5 bg-slate-100 text-slate-700 rounded-md hover:bg-slate-200 transition">
+                                            <i class="bi bi-magic"></i> Generate from Content
+                                        </button>
+                                    </div>
+                                </div>`;
+                            break;
+                        case 'pdf-upload':
+                            inputHtml = `
+                                <div>
+                                    <label for="form-${field.id}" class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100">
+                                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                            <i class="bi bi-file-earmark-pdf-fill text-4xl text-slate-400"></i>
+                                            <p class="mb-2 text-sm text-slate-500"><span class="font-semibold">Click to upload PDF</span></p>
+                                        </div>
+                                        <input id="form-${field.id}" type="file" class="hidden" accept=".pdf">
+                                    </label>
+                                    <div id="upload-progress-container-${field.id}" class="mt-2 hidden">
+                                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                            <div id="upload-progress-bar-${field.id}" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                        </div>
+                                        <p id="upload-status-${field.id}" class="text-xs text-center mt-1"></p>
+                                    </div>
+                                </div>`;
+                            break;
+                        case 'file': 
+                             inputHtml = `
+                                <div class="flex items-center gap-4">
+                                    <div id="thumbnail-preview-${field.id}" class="w-20 h-20 bg-slate-100 rounded-md flex items-center justify-center text-slate-400 relative hidden">
+                                        <img src="" class="w-full h-full object-cover rounded-md">
+                                        <button type="button" class="delete-thumbnail-btn absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md text-red-500 hover:text-red-700">
+                                            <i class="bi bi-x-circle-fill"></i>
+                                        </button>
+                                    </div>
+                                    <label for="form-${field.id}" id="thumbnail-upload-label-${field.id}" class="flex flex-col items-center justify-center w-full h-20 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100">
+                                        <div class="flex flex-col items-center justify-center">
+                                            <i class="bi bi-cloud-arrow-up-fill text-3xl text-slate-400"></i>
+                                            <p class="text-xs text-slate-500"><span class="font-semibold">Click to upload</span></p>
+                                        </div>
+                                        <input type="file" id="form-${field.id}" class="hidden" accept="image/*">
+                                    </label>
+                                </div>`;
+                            break;
+                        default: inputHtml = `<input type="${field.type}" id="form-${field.id}" class="form-input" ${field.readonly ? 'readonly' : ''}>`;
+                    }
+                    return `<div id="field-wrapper-${field.id}" class="field-wrapper"><label for="form-${field.id}" class="font-semibold text-slate-700 text-sm">${field.label}</label><div class="mt-1">${inputHtml}</div><p class="logic-note">${field.logic}</p></div>`;
+                }).join('');
+                
+                const headerText = itemId ? `Edit ${config.singular}` : `Add New ${config.singular}`;
+                
+                viewContainer.innerHTML = `
+                    <div class="mb-6">
+                        <button id="mas-back-btn" class="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors">
+                            <i class="bi bi-arrow-left-circle-fill"></i> Back to ${config.title}
+                        </button>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
+                        <h2 id="mas-form-header" class="text-lg font-bold text-slate-800 mb-4">${headerText}</h2>
+                        <form id="mas-section-form" class="form-grid">${formHtml}</form>
+                        <div class="flex flex-col sm:flex-row gap-3 pt-5 border-t border-slate-200 mt-5">
+                            <button id="form-submit-btn" class="w-full sm:w-auto px-5 py-2 font-bold text-white text-sm bg-indigo-600 rounded-md hover:bg-indigo-700 transition">Save ${config.singular}</button>
+                            <button type="button" id="mas-cancel-form-btn" class="w-full sm:w-auto px-5 py-2 font-bold text-slate-700 text-sm bg-slate-100 rounded-md hover:bg-slate-200 transition">Cancel</button>
+                        </div>
+                    </div>`;
+                
+                this.attachFormEventListeners(sectionKey, params);
+            },
+
+            renderBookTypeSelector(container, config) {
+                container.innerHTML = `
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+                        <div><h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900">${config.title} Management</h1><p class="text-slate-500 mt-1">Select a book type to create or manage.</p></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        ${config.types.map(type => `
+                            <div class="bg-white rounded-xl shadow p-6 text-center shadow-hover-enhanced transition-all duration-300 border border-slate-200/80">
+                                <div class="p-4 bg-indigo-100 rounded-full inline-block mb-4"><i class="bi bi-${type.icon} text-3xl text-indigo-600"></i></div>
+                                <h2 class="text-lg font-bold text-slate-800">${type.type}</h2>
+                                <p class="text-slate-500 mt-2 text-sm">${type.description}</p>
+                                <button class="add-book-btn mt-6 w-full px-4 py-2 font-bold text-white text-sm bg-indigo-600 rounded-lg hover:bg-indigo-700 transition" data-book-type="${type.type}">Add New</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                container.querySelectorAll('.add-book-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const bookType = btn.dataset.bookType;
+                        this.showView('books', { viewMode: 'form', bookType: bookType }); 
+                    });
+                });
+            },
+
+            renderTableBody(sectionKey, items) {
+                const config = this.config.sectionConfigs[sectionKey];
+                const tableBody = document.getElementById('mas-table-body');
+                if (!tableBody) return;
+
+                tableBody.innerHTML = items.map(item => 
+                    `<tr data-id="${item.id}" class="hover:bg-slate-50 transition-colors duration-200">
+                        ${config.columns.map(col => `<td data-label="${col.header}" class="px-4 py-3 whitespace-nowrap text-sm text-slate-700">${col.render(item)}</td>`).join('')}
+                        <td data-label="Actions" class="actions-cell px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                            <button class="aws-edit-btn text-indigo-600 hover:text-indigo-900 font-semibold">Edit</button>
+                            ${sectionKey === 'users' ? '<button class="aws-reset-pass-btn text-blue-600 hover:text-blue-900 ml-4 font-semibold">Reset Pass</button>' : ''}
+                            <button class="aws-delete-btn text-red-600 hover:text-red-900 ml-4 font-semibold">Delete</button>
+                        </td>
+                    </tr>`
+                ).join('') || `<tr><td colspan="${config.columns.length + 1}" class="text-center py-10 text-slate-500">No ${config.title} found.</td></tr>`;
+            },
+            
+            attachListViewEventListeners(sectionKey) {
+                const viewContainer = document.getElementById(`${sectionKey}-view`);
+                if (!viewContainer) return;
+
+                const config = this.config.sectionConfigs[sectionKey];
+
+                viewContainer.querySelector('#mas-add-new-btn')?.addEventListener('click', () => {
+                    this.showView(sectionKey, { viewMode: 'form' });
+                });
+
+                viewContainer.querySelector('tbody')?.addEventListener('click', e => {
+                    const row = e.target.closest('tr');
+                    if (!row) return;
+                    const id = row.dataset.id;
+                    if (e.target.closest('.aws-edit-btn')) {
+                        this.showView(sectionKey, { viewMode: 'form', itemId: id });
+                    }
+                    if (e.target.closest('.aws-delete-btn')) {
+                        this.showConfirmationModal(`Delete ${config.singular}?`, 'This action cannot be undone.', () => {
+                            this.cache[sectionKey] = this.cache[sectionKey].filter(item => item.id !== id);
+                            this.showView(sectionKey);
+                        });
+                    }
+                });
+
+                viewContainer.querySelectorAll('.aws-tab-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const tabId = button.dataset.tab;
+                        viewContainer.querySelectorAll('.aws-tab-btn').forEach(btn => btn.classList.remove('active'));
+                        viewContainer.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+                        button.classList.add('active');
+                        const activePanel = viewContainer.querySelector(`#mas-${tabId}-panel`);
+                        if(activePanel) activePanel.classList.add('active');
+                        if (tabId === 'live-data' && this.state.jsonDataViewers[sectionKey]) {
+                            this.state.jsonDataViewers[sectionKey].render();
+                        }
+                    });
+                });
+
+                const searchInput = viewContainer.querySelector('#mas-search-input');
+                if (searchInput) {
+                    searchInput.addEventListener('keyup', () => {
+                        const searchTerm = searchInput.value.toLowerCase();
+                        const allItems = this.cache[sectionKey] || [];
+                        const filteredItems = allItems.filter(item => {
+                            return config.columns.some(col => {
+                                const cellContent = col.render(item).toString().toLowerCase();
+                                const plainTextContent = cellContent.replace(/<[^>]*>?/gm, '');
+                                return plainTextContent.includes(searchTerm);
+                            });
+                        });
+                        this.renderTableBody(sectionKey, filteredItems);
+                    });
+                }
+            },
+
+            attachFormEventListeners(sectionKey, params = {}) {
+                const { itemId = null, bookType = null } = params;
+                const viewContainer = document.getElementById(`${sectionKey}-view`);
+                if (!viewContainer) return;
+                
+                const form = viewContainer.querySelector('#mas-section-form');
+                if (!form) return;
+
+                const config = this.config.sectionConfigs[sectionKey];
+                
+                this.state.searchableDropdowns = [];
+                form.querySelectorAll('.searchable-dropdown').forEach(el => {
+                    const options = JSON.parse(el.dataset.options);
+                    const id = el.id.replace('s-dropdown-', '');
+                    this.state.searchableDropdowns.push(new this.SearchableDropdown(el, options, `form-${id}`));
+                });
+
+                const backBtn = viewContainer.querySelector('#mas-back-btn');
+                const cancelBtn = viewContainer.querySelector('#mas-cancel-form-btn');
+                
+                const goBack = () => {
+                    if (sectionKey === 'books') {
+                         this.showView('books'); // Go back to type selector
+                    } else {
+                         this.showView(sectionKey);
+                    }
+                };
+
+                backBtn.addEventListener('click', goBack);
+                cancelBtn.addEventListener('click', goBack);
+
+                if (bookType) {
+                     const bookTypeDropdown = this.state.searchableDropdowns.find(d => d.id === 'form-bookType');
+                     if (bookTypeDropdown) {
+                         bookTypeDropdown.setValue(bookType);
+                     }
+                }
+
+                if (itemId) {
+                    const item = this.cache[sectionKey].find(i => i.id === itemId);
+                    config.fields.forEach(field => {
+                        if (field.type === 'group') {
+                            field.fields.forEach(f => {
+                                const fieldEl = form.querySelector(`#form-${f.id}`);
+                                if (fieldEl) {
+                                    if (f.type === 'richtext') {
+                                        fieldEl.innerHTML = item[f.id] || '';
+                                    } else {
+                                        fieldEl.value = item[f.id] || '';
+                                    }
+                                }
+                            });
+                        } else if (field.type === 'select') {
+                            const dropdown = this.state.searchableDropdowns.find(d => d.id === `form-${field.id}`);
+                            if(dropdown) dropdown.setValue(item[field.id]);
+                        } else if (field.type === 'line-layout') {
+                            const layoutContainer = form.querySelector(`#form-${field.id}`);
+                            layoutContainer.querySelectorAll('.line-layout-option').forEach(opt => {
+                                opt.classList.toggle('selected', opt.dataset.value == item[field.id]);
+                            });
+                        } else if (field.type === 'toc-editor') {
+                            const tocContainer = form.querySelector(`#form-${field.id}`);
+                            const listEl = tocContainer.querySelector('#toc-items-list');
+                            const items = item[field.id] && Array.isArray(item[field.id]) && item[field.id].length > 0
+                                ? item[field.id] 
+                                : [{title: '', level: 0}];
+                            
+                            const renderTocFromData = (tocItems) => {
+                                listEl.innerHTML = tocItems.map((tocItem, index) => `
+                                    <div class="toc-editor-item flex items-center gap-2 p-1 rounded-md" data-index="${index}" style="margin-left: ${tocItem.level * 20}px;">
+                                        <input type="text" value="${tocItem.title}" class="form-input flex-grow toc-item-title text-sm py-1" placeholder="Chapter Title">
+                                        <div class="actions flex items-center">
+                                            <button type="button" class="toc-indent-btn p-1 hover:bg-slate-200 rounded" title="Indent"><i class="bi bi-text-indent-left"></i></button>
+                                            <button type="button" class="toc-outdent-btn p-1 hover:bg-slate-200 rounded" title="Outdent"><i class="bi bi-text-indent-right"></i></button>
+                                            <button type="button" class="toc-delete-btn p-1 text-red-500 hover:bg-red-100 rounded" title="Delete"><i class="bi bi-trash"></i></button>
+                                        </div>
+                                    </div>
+                                `).join('');
+                            };
+                            renderTocFromData(items);
+                        } else {
+                            const fieldEl = form.querySelector(`#form-${field.id}`);
+                            if (fieldEl) fieldEl.value = item[field.id] || '';
+                        }
+                    });
+                    if (form.querySelector('#form-seoTitle')) {
+                        form.querySelector('#form-seoTitle').value = item.seoTitle || '';
+                        form.querySelector('#form-seoDescription').value = item.seoDescription || '';
+                        form.querySelector('#form-aeoSchema').value = item.aeoSchema ? JSON.stringify(item.aeoSchema, null, 2) : '';
+                    }
+                }
+
+                viewContainer.querySelector('#form-submit-btn').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const newItemData = {};
+                    config.fields.forEach(field => {
+                         if (field.type === 'seo' || field.type === 'group') return;
+                         if (field.type === 'file' || field.type === 'pdf-upload') {
+                             const fileInput = form.querySelector(`#form-${field.id}`);
+                             if (fileInput.files.length > 0) newItemData[field.id] = fileInput.files[0].name;
+                         } else if (field.type === 'line-layout') {
+                             const selected = form.querySelector(`#form-${field.id} .selected`);
+                             if (selected) newItemData[field.id] = selected.dataset.value;
+                         } else if (field.type === 'toc-editor') {
+                             const tocContainer = form.querySelector(`#form-${field.id}`);
+                             const items = [];
+                             if (tocContainer) {
+                                 tocContainer.querySelectorAll('.toc-editor-item').forEach(itemEl => {
+                                     const level = (parseInt(itemEl.style.marginLeft || '0', 10) / 20) || 0;
+                                     const title = itemEl.querySelector('.toc-item-title').value;
+                                     if(title) { items.push({ title: title, level: level }); }
+                                 });
+                             }
+                             newItemData[field.id] = items;
+                         } else {
+                             const fieldEl = form.querySelector(`#form-${field.id}`);
+                             if(fieldEl) newItemData[field.id] = fieldEl.value;
+                         }
+                    });
+
+                    config.fields.filter(f => f.type === 'group').forEach(group => {
+                        group.fields.forEach(f => {
+                            const fieldEl = form.querySelector(`#form-${f.id}`);
+                            if(fieldEl) {
+                                newItemData[f.id] = (f.type === 'richtext') ? fieldEl.innerHTML : fieldEl.value;
+                            }
+                        });
+                    });
+
+                    if (form.querySelector('#form-seoTitle')) {
+                        newItemData.seoTitle = form.querySelector('#form-seoTitle').value;
+                        newItemData.seoDescription = form.querySelector('#form-seoDescription').value;
+                        try { newItemData.aeoSchema = JSON.parse(form.querySelector('#form-aeoSchema').value); } catch (e) { newItemData.aeoSchema = {}; }
+                    }
+                    
+                    if (itemId) {
+                        const index = this.cache[sectionKey].findIndex(item => item.id === itemId);
+                        this.cache[sectionKey][index] = { ...this.cache[sectionKey][index], ...newItemData };
+                    } else {
+                        this.cache[sectionKey].push({ id: this.generateId(), createdAt: new Date().toISOString(), ...newItemData });
+                    }
+                    
+                    this.showView(sectionKey);
+                });
+
+                const dictionaryBtn = viewContainer.querySelector('#generate-dictionary-btn');
+                if (dictionaryBtn) {
+                    dictionaryBtn.addEventListener('click', () => {
+                        const lyricsFields = ['lyricsUrdu', 'lyricsRoman', 'lyricsEnglish', 'lyricsArabic', 'lyricsHindi'];
+                        let allLyrics = lyricsFields.map(id => form.querySelector(`#form-${id}`)?.value || '').join(' ');
+                        const words = allLyrics.split(/[\s\n,.]+/).filter(word => word.length > 0);
+                        const uniqueWords = [...new Set(words.map(w => w.toLowerCase()))].sort();
+                        form.querySelector('#form-kalamTextDictionary').value = uniqueWords.join(', ');
+                    });
+                }
+
+                const titleInput = form.querySelector('#form-title, #form-name');
+                const slugInput = form.querySelector('#form-slug');
+                if (titleInput && slugInput) {
+                    titleInput.addEventListener('keyup', () => {
+                        slugInput.value = titleInput.value.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+                    });
+                }
+
+                form.querySelectorAll('.rich-text-editor-toolbar').forEach(toolbar => {
+                    const editor = toolbar.nextElementSibling;
+                    toolbar.querySelectorAll('.rte-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const command = btn.dataset.command;
+                            let value = btn.dataset.value || null;
+                            if (command === 'createLink') {
+                                this.showPromptModal('Enter URL', 'Please provide the link URL.', 'https://example.com', (url) => {
+                                    if (url) { editor.focus(); document.execCommand(command, false, url); }
+                                });
+                                return;
+                            }
+                            document.execCommand(command, false, value);
+                            editor.focus();
+                        });
+                    });
+                    toolbar.querySelectorAll('.rte-select').forEach(select => {
+                        select.addEventListener('change', () => {
+                            document.execCommand('formatBlock', false, `<${select.value}>`);
+                            editor.focus();
+                        });
+                    });
+                });
+
+                const tocContainer = form.querySelector('.toc-editor-container');
+                if (tocContainer) {
+                    const listEl = tocContainer.querySelector('#toc-items-list');
+                    const addBtn = tocContainer.querySelector('#add-toc-item-btn');
+                    const generateBtn = tocContainer.querySelector('#generate-toc-btn');
+
+                    const getTocDataFromUI = () => Array.from(listEl.querySelectorAll('.toc-editor-item')).map(itemEl => ({
+                        title: itemEl.querySelector('.toc-item-title').value,
+                        level: (parseInt(itemEl.style.marginLeft || '0', 10) / 20) || 0
+                    }));
+                    
+                    const renderTocFromData = (items = [{title: '', level: 0}]) => {
+                        listEl.innerHTML = items.map((item, index) => `
+                            <div class="toc-editor-item flex items-center gap-2 p-1 rounded-md" data-index="${index}" style="margin-left: ${item.level * 20}px;">
+                                <input type="text" value="${item.title}" class="form-input flex-grow toc-item-title text-sm py-1" placeholder="Chapter Title">
+                                <div class="actions flex items-center">
+                                    <button type="button" class="toc-indent-btn p-1 hover:bg-slate-200 rounded" title="Indent"><i class="bi bi-text-indent-left"></i></button>
+                                    <button type="button" class="toc-outdent-btn p-1 hover:bg-slate-200 rounded" title="Outdent"><i class="bi bi-text-indent-right"></i></button>
+                                    <button type="button" class="toc-delete-btn p-1 text-red-500 hover:bg-red-100 rounded" title="Delete"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </div>
+                        `).join('');
+                    };
+                    
+                    if(listEl.innerHTML === '') renderTocFromData();
+                    
+                    generateBtn?.addEventListener('click', () => {
+                        const combinedContent = ['#form-contentUrdu', '#form-contentRoman', '#form-contentArabic'].map(id => form.querySelector(id)?.innerHTML || '').join('');
+                        if (!combinedContent) { this.showConfirmationModal('No Content', 'Could not find any content to generate an index from.', () => {}); return; }
+                        const tempDiv = document.createElement('div'); tempDiv.innerHTML = combinedContent;
+                        const headings = tempDiv.querySelectorAll('h1, h2, h3');
+                        if (headings.length === 0) { this.showConfirmationModal('No Headings Found', 'The content does not contain any H1, H2, or H3 headings to generate an index.', () => {}); return; }
+                        const tocData = Array.from(headings).map(h => ({ title: h.textContent.trim(), level: (h.tagName.toLowerCase() === 'h2' ? 1 : (h.tagName.toLowerCase() === 'h3' ? 2 : 0)) }));
+                        renderTocFromData(tocData);
+                    });
+
+                    addBtn.addEventListener('click', () => renderTocFromData([...getTocDataFromUI(), {title: '', level: 0}]));
+
+                    listEl.addEventListener('click', e => {
+                        const itemEl = e.target.closest('.toc-editor-item');
+                        if (!itemEl) return;
+                        let currentItems = getTocDataFromUI();
+                        const index = parseInt(itemEl.dataset.index, 10);
+                        if (e.target.closest('.toc-delete-btn')) {
+                            currentItems.splice(index, 1);
+                            renderTocFromData(currentItems.length > 0 ? currentItems : undefined);
+                        } else if (e.target.closest('.toc-indent-btn')) {
+                            if (index > 0 && currentItems[index].level <= currentItems[index-1].level) currentItems[index].level++;
+                            renderTocFromData(currentItems);
+                        } else if (e.target.closest('.toc-outdent-btn')) {
+                            if (currentItems[index].level > 0) currentItems[index].level--;
+                            renderTocFromData(currentItems);
+                        }
+                    });
+                }
+
+                form.querySelectorAll('.line-layout-selector').forEach(selector => {
+                    selector.addEventListener('click', e => {
+                        const option = e.target.closest('.line-layout-option');
+                        if (option) {
+                            selector.querySelectorAll('.line-layout-option').forEach(opt => opt.classList.remove('selected'));
+                            option.classList.add('selected');
+                        }
+                    });
+                });
+
+                config.fields.filter(f => f.type === 'file').forEach(field => {
+                    const fileInput = form.querySelector(`#form-${field.id}`);
+                    const previewContainer = form.querySelector(`#thumbnail-preview-${field.id}`);
+                    const previewImg = previewContainer.querySelector('img');
+                    const uploadLabel = form.querySelector(`#thumbnail-upload-label-${field.id}`);
+                    const deleteBtn = previewContainer.querySelector('.delete-thumbnail-btn');
+                    fileInput.addEventListener('change', (e) => {
+                        if (e.target.files[0]) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                previewImg.src = event.target.result;
+                                previewContainer.classList.remove('hidden');
+                                uploadLabel.classList.add('hidden');
+                            };
+                            reader.readAsDataURL(e.target.files[0]);
+                        }
+                    });
+                    deleteBtn.addEventListener('click', () => {
+                        fileInput.value = ''; previewImg.src = '';
+                        previewContainer.classList.add('hidden');
+                        uploadLabel.classList.remove('hidden');
+                    });
+                });
+
+                config.fields.filter(f => f.type === 'pdf-upload').forEach(field => {
+                    form.querySelector(`#form-${field.id}`)?.addEventListener('change', (e) => {
+                        if (e.target.files[0]) {
+                            const pC = form.querySelector(`#upload-progress-container-${field.id}`), pB = form.querySelector(`#upload-progress-bar-${field.id}`), sT = form.querySelector(`#upload-status-${field.id}`);
+                            pC.classList.remove('hidden'); pB.style.width = '0%'; sT.textContent = 'Uploading... 0%';
+                            let progress = 0;
+                            const interval = setInterval(() => {
+                                progress += 10; pB.style.width = `${progress}%`; sT.textContent = `Uploading... ${progress}%`;
+                                if (progress >= 100) {
+                                    clearInterval(interval);
+                                    const success = Math.random() > 0.2;
+                                    pB.classList.toggle('bg-indigo-600', !success); pB.classList.toggle('bg-green-600', success); pB.classList.toggle('bg-red-600', !success);
+                                    sT.textContent = success ? 'Upload successful!' : 'Upload failed. Please try again.';
+                                }
+                            }, 200);
+                        }
+                    });
+                });
+
+                const conditionalFields = config.fields.filter(f => f.showIf);
+                if (conditionalFields.length > 0) {
+                    const triggerFieldId = conditionalFields[0].showIf;
+                    const dropdown = this.state.searchableDropdowns.find(d => d.id === `form-${triggerFieldId}`);
+                    if (dropdown) {
+                        const updateVisibility = (selectedValue) => {
+                            conditionalFields.forEach(field => {
+                                const wrapper = form.querySelector(`#field-wrapper-${field.id}`);
+                                if (wrapper) {
+                                    const show = Array.isArray(field.showValue) ? field.showValue.includes(selectedValue) : selectedValue === field.showValue;
+                                    wrapper.style.display = show ? 'block' : 'none';
+                                }
+                            });
+                        };
+                        dropdown.on('change', updateVisibility);
+                        setTimeout(() => updateVisibility(dropdown.getValue()), 0);
+                    }
+                }
+
+                form.querySelector('#generate-seo-btn')?.addEventListener('click', () => {
+                    const title = form.querySelector('#form-title')?.value || form.querySelector('#form-name')?.value || '';
+                    const description = form.querySelector('#form-description')?.value || form.querySelector('#form-bio')?.value || '';
+                    const seoData = this.generateSEO(title, description, sectionKey);
+                    form.querySelector('#form-seoTitle').value = seoData.seoTitle;
+                    form.querySelector('#form-seoDescription').value = seoData.seoDescription;
+                    form.querySelector('#form-aeoSchema').value = JSON.stringify(seoData.aeoSchema, null, 2);
+                });
+            },
+
+            generateSEO(title, description, type) {
+                const seoTitle = `${title} | Naat Academy`.substring(0, 60);
+                const seoDescription = description ? description.substring(0, 160) : '';
+                let aeoSchema = { "@context": "https://schema.org", "name": title, "description": seoDescription };
+                switch(type) {
+                    case 'page': aeoSchema["@type"] = "WebPage"; break;
+                    case 'articles': aeoSchema["@type"] = "Article"; break;
+                    case 'books': aeoSchema["@type"] = "Book"; break;
+                    default: aeoSchema["@type"] = "CreativeWork";
+                }
+                return { seoTitle, seoDescription, aeoSchema };
+            },
+            
+            showConfirmationModal(title, message, callback) {
+                this.elements.modalContainer.innerHTML = `
+                    <div id="confirmationModal" class="modal-backdrop visible">
+                        <div class="modal-content text-center">
+                            <h2 class="text-xl font-bold text-slate-800 mb-2">${title}</h2>
+                            <p class="text-slate-600 mb-6 text-sm">${message}</p>
+                            <div class="flex justify-center gap-3">
+                                <button id="modalConfirmBtn" class="px-5 py-2 font-bold text-white text-sm bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">OK</button>
+                                <button id="modalCancelBtn" class="px-5 py-2 font-bold text-slate-700 text-sm bg-slate-200 rounded-lg hover:bg-slate-300 transition hidden">Cancel</button>
+                            </div>
+                        </div>
+                    </div>`;
+                const confirmBtn = document.getElementById('modalConfirmBtn');
+                const cancelBtn = document.getElementById('modalCancelBtn');
+                if (title.toLowerCase().includes('delete') || title.toLowerCase().includes('confirm') || title.toLowerCase().includes('reset')) {
+                    confirmBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    confirmBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                    if (title.toLowerCase().includes('reset')) {
+                        confirmBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                        confirmBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    }
+                    cancelBtn.classList.remove('hidden');
+                } else {
+                     cancelBtn.style.display = 'none';
+                     confirmBtn.textContent = 'OK';
+                }
+                confirmBtn.onclick = () => { if(callback) callback(); this.elements.modalContainer.innerHTML = ''; };
+                cancelBtn.onclick = () => { this.elements.modalContainer.innerHTML = ''; };
+            },
+
+            showPromptModal(title, message, placeholder, callback) {
+                this.elements.modalContainer.innerHTML = `
+                    <div id="promptModal" class="modal-backdrop visible">
+                        <div class="modal-content text-left">
+                            <h2 class="text-xl font-bold text-slate-800 mb-2">${title}</h2>
+                            <p class="text-slate-600 mb-4 text-sm">${message}</p>
+                            <input id="modalInput" type="text" class="form-input w-full" placeholder="${placeholder}">
+                            <div class="flex justify-end gap-3 mt-6">
+                                <button id="modalCancelBtn" class="px-5 py-2 font-bold text-slate-700 text-sm bg-slate-200 rounded-lg hover:bg-slate-300 transition">Cancel</button>
+                                <button id="modalConfirmBtn" class="px-5 py-2 font-bold text-white text-sm bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">OK</button>
+                            </div>
+                        </div>
+                    </div>`;
+                const confirmBtn = document.getElementById('modalConfirmBtn');
+                const cancelBtn = document.getElementById('modalCancelBtn');
+                const input = document.getElementById('modalInput');
+                
+                const closeModal = () => this.elements.modalContainer.innerHTML = '';
+
+                confirmBtn.onclick = () => {
+                    if (callback) callback(input.value);
+                    closeModal();
+                };
+                cancelBtn.onclick = closeModal;
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        confirmBtn.click();
+                    }
+                });
+                setTimeout(() => input.focus(), 50);
+            },
+
+            SearchableDropdown: class {
+                constructor(container, options, id) {
+                    this.container = container; this.options = options; this.id = id; this.eventListeners = {};
+                    this.render(); this.attachEventListeners();
+                }
+                render() {
+                    this.container.innerHTML = `<input type="hidden" id="${this.id}"><div class="form-input searchable-dropdown-input flex justify-between items-center"><span class="truncate">Select an option...</span><i class="bi bi-chevron-down"></i></div><div class="searchable-dropdown-list"><input type="text" class="search-input w-full" placeholder="Search..."><div class="searchable-options-list"></div></div>`;
+                    this.renderOptions(this.options);
+                }
+                renderOptions(options) {
+                    this.container.querySelector('.searchable-options-list').innerHTML = options.map(opt => `<div class="searchable-dropdown-item" data-value="${opt.value}">${opt.text}</div>`).join('');
+                }
+                attachEventListeners() {
+                    this.container.querySelector('.searchable-dropdown-input').addEventListener('click', () => this.container.querySelector('.searchable-dropdown-list').classList.toggle('open'));
+                    this.container.querySelector('.search-input').addEventListener('keyup', (e) => {
+                        const searchTerm = e.target.value.toLowerCase();
+                        const filteredOptions = this.options.filter(opt => opt.text.toLowerCase().includes(searchTerm));
+                        this.renderOptions(filteredOptions);
+                    });
+                    this.container.querySelector('.searchable-options-list').addEventListener('click', (e) => {
+                        if(e.target.classList.contains('searchable-dropdown-item')) {
+                            this.setValue(e.target.dataset.value);
+                            this.close();
+                        }
+                    });
+                }
+                setValue(value) {
+                    const selectedOption = this.options.find(opt => opt.value == value);
+                    if(selectedOption) {
+                        this.container.querySelector('input[type=hidden]').value = selectedOption.value;
+                        this.container.querySelector('.searchable-dropdown-input span').textContent = selectedOption.text;
+                        this.trigger('change', selectedOption.value);
+                    }
+                }
+                getValue() { return this.container.querySelector('input[type=hidden]').value; }
+                close() { this.container.querySelector('.searchable-dropdown-list').classList.remove('open'); }
+                reset() { this.container.querySelector('input[type=hidden]').value = ''; this.container.querySelector('.searchable-dropdown-input span').textContent = 'Select an option...'; }
+                on(eventName, callback) { this.eventListeners[eventName] = this.eventListeners[eventName] || []; this.eventListeners[eventName].push(callback); }
+                trigger(eventName, data) { if (this.eventListeners[eventName]) { this.eventListeners[eventName].forEach(callback => callback(data)); } }
+            },
+
+            JsonDataViewer: class {
+                 constructor(containerId, collectionKey, title) {
+                    this.container = document.getElementById(containerId); this.collectionKey = collectionKey; this.title = title; this.currentView = 'table';
+                    if (this.container) this.init();
+                }
+                init() {
+                    this.container.innerHTML = `<div class="json-viewer-container"><div class="p-3 border-b border-slate-200"><h3 class="text-md font-bold text-slate-800">${this.title}</h3><p class="text-xs text-slate-500">Manage raw data for this section.</p></div><div class="p-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50"><div class="json-viewer-tabs flex"><button data-view="table" class="tab-btn active"><i class="bi bi-table mr-2"></i>Table</button><button data-view="code" class="tab-btn"><i class="bi bi-code-slash mr-2"></i>Code</button></div><div class="flex flex-wrap gap-2"><button class="add-row-btn text-xs font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"><i class="bi bi-plus-lg"></i> Add</button><button class="save-all-btn text-xs font-bold px-2 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200"><i class="bi bi-check-all"></i> Save</button><button class="import-btn text-xs font-bold px-2 py-1 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200"><i class="bi bi-upload"></i> Import</button><button class="export-btn text-xs font-bold px-2 py-1 bg-orange-100 text-orange-700 rounded-md hover:bg-orange-200"><i class="bi bi-download"></i> Export</button><input type="file" class="import-file-input" accept=".json" style="display: none;"></div></div><div class="json-viewer-content"><div class="view-panel table-view-panel active"></div><div class="view-panel code-view-panel"></div></div></div>`;
+                    this.attachEventListeners(); this.render();
+                }
+                attachEventListeners() {
+                    this.container.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => this.switchView(btn.dataset.view)));
+                    this.container.querySelector('.export-btn').addEventListener('click', () => this.exportJson());
+                    this.container.querySelector('.import-btn').addEventListener('click', () => this.container.querySelector('.import-file-input').click());
+                    this.container.querySelector('.import-file-input').addEventListener('change', (e) => this.importJson(e));
+                    this.container.querySelector('.save-all-btn').addEventListener('click', () => this.saveData());
+                    this.container.querySelector('.add-row-btn').addEventListener('click', () => this.addNewRow());
+                }
+                switchView(view) {
+                    this.currentView = view;
+                    this.container.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                    this.container.querySelector(`[data-view="${view}"]`).classList.add('active');
+                    this.container.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+                    this.container.querySelector(`.${view}-view-panel`).classList.add('active');
+                    this.render();
+                }
+                render() { if (this.currentView === 'table') this.renderTable(); else this.renderCode(); }
+                renderCode() { this.container.querySelector('.code-view-panel').innerHTML = `<textarea class="json-code-view">${JSON.stringify(app.cache[this.collectionKey], null, 2)}</textarea>`; }
+                renderTable() {
+                    const panel = this.container.querySelector('.table-view-panel');
+                    const data = app.cache[this.collectionKey];
+                    if (!data || data.length === 0) { panel.innerHTML = `<p class="text-center text-slate-500 py-4 text-sm">No data to display.</p>`; return; }
+                    const headers = Object.keys(data.reduce((acc, row) => ({...acc, ...row }), {}));
+                    const renderCell = (value) => {
+                        if (value === undefined || value === null) return '';
+                        if (typeof value === 'object') return JSON.stringify(value);
+                        return String(value);
+                    };
+                    panel.innerHTML = `<div class="overflow-x-auto"><table class="json-table"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}<th>Actions</th></tr></thead><tbody>${data.map((row, rowIndex) => `<tr data-row-index="${rowIndex}" ${row.id ? `data-id="${row.id}"` : ''}>${headers.map(header => `<td contenteditable="true" data-key="${header}">${renderCell(row[header])}</td>`).join('')}<td><button class="delete-row-btn p-1 text-red-500 hover:text-red-700" data-row-index="${rowIndex}"><i class="bi bi-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+                    panel.querySelectorAll('.delete-row-btn').forEach(btn => btn.addEventListener('click', (e) => this.deleteRow(e.currentTarget.dataset.rowIndex)));
+                }
+                saveData() {
+                    if (this.currentView === 'code') {
+                        try {
+                            const newData = JSON.parse(this.container.querySelector('.json-code-view').value);
+                            if (!Array.isArray(newData)) throw new Error("Data must be a JSON array.");
+                            app.cache[this.collectionKey] = newData;
+                        } catch (e) {
+                            app.showConfirmationModal('Invalid JSON', `Please correct it before saving. Error: ${e.message}`, () => {});
+                            return;
+                        }
+                    } else {
+                        const tableRows = this.container.querySelectorAll('tbody tr');
+                        const originalData = app.cache[this.collectionKey];
+                        const newData = [];
+                        tableRows.forEach(tr => {
+                            const rowIndex = parseInt(tr.dataset.rowIndex, 10);
+                            const originalItem = originalData.find(item => item.id === tr.dataset.id) || originalData[rowIndex] || {};
+                            const newItem = { ...originalItem };
+                            tr.querySelectorAll('td[contenteditable]').forEach(td => {
+                                const key = td.dataset.key;
+                                let value = td.textContent;
+                                try {
+                                    newItem[key] = JSON.parse(value);
+                                } catch (e) {
+                                    newItem[key] = value;
+                                }
+                            });
+                            newData.push(newItem);
+                        });
+                        app.cache[this.collectionKey] = newData;
+                    }
+                    app.showConfirmationModal('Success!', 'Data has been saved to the local cache.', () => {});
+                    app.showView(app.state.currentView);
+                }
+                addNewRow() {
+                    const data = app.cache[this.collectionKey];
+                    if (!data) { app.cache[this.collectionKey] = []; }
+                    const headers = data.length > 0 ? Object.keys(data.reduce((acc, row) => ({...acc, ...row }), {})) : ['id', 'name'];
+                    const newRow = headers.reduce((acc, key) => ({...acc, [key]: ''}), {});
+                    newRow.id = app.generateId();
+                    app.cache[this.collectionKey].push(newRow); this.render();
+                }
+                deleteRow(index) { app.cache[this.collectionKey].splice(index, 1); this.render(); }
+                exportJson() {
+                    const dataStr = JSON.stringify(app.cache[this.collectionKey], null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `${this.collectionKey}.json`; a.click();
+                    URL.revokeObjectURL(url);
+                }
+                importJson(event) {
+                    const file = event.target.files[0]; if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const importedData = JSON.parse(e.target.result);
+                            app.showConfirmationModal('Confirm Import', `This will replace all data in '${this.collectionKey}'. Are you sure?`, () => {
+                                app.cache[this.collectionKey] = importedData;
+                                this.showView(this.collectionKey);
+                            });
+                        } catch (err) { app.showConfirmationModal('Import Error', `Error parsing JSON file: ${err.message}`, () => {}); }
+                    };
+                    reader.readAsText(file); event.target.value = '';
+                }
+            }
+        };
+
+        app.init();
+    });
+    </script>
+</body>
+</html>
